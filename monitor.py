@@ -1,4 +1,6 @@
 import os
+import time
+
 from watchdog.events import FileSystemEventHandler
 from real_debrid import upload_magnet_to_realdebrid  # Import the function
 from download import copy_file_with_progress  # Import the file copy function
@@ -8,7 +10,6 @@ from arrs import get_arr_folder  # Import the function to determine the arr fold
 # Initialize TinyDB
 db = TinyDB('InRD.json')
 
-
 class MagnetFileHandler(FileSystemEventHandler):
     def on_created(self, event):
         """
@@ -16,6 +17,7 @@ class MagnetFileHandler(FileSystemEventHandler):
         """
         file_path = event.src_path
         print(f"Created: {file_path}")
+        time.sleep(.5)
 
         # Check if the file is a .magnet file
         if file_path.endswith(".magnet"):
@@ -23,20 +25,19 @@ class MagnetFileHandler(FileSystemEventHandler):
             # Read the magnet link from the file
             with open(file_path, 'r') as file:
                 magnet_link = file.read().strip()
-                print(f"Magnet link: {magnet_link}")
                 # Upload the magnet link to Real-Debrid
                 result = upload_magnet_to_realdebrid(magnet_link)
                 if result:
-                    print(f"Torrent ID: {result['id']}")
-                    print(f"Filename: {result['filename']}")
                     # Determine the arr folder
                     arr_folder = get_arr_folder(file_path)
                     if arr_folder:
                         # Write to the database
-                        db.insert({
+                        db.insert(
+                            {
                             "filename": result["filename"],
                             "arr_folder": arr_folder
-                        })
+                            }
+                        )
                         print(f"Added to database: {result['filename']} (arr_folder: {arr_folder})")
 
 class RcloneFileHandler(FileSystemEventHandler):
@@ -60,8 +61,8 @@ class RcloneFileHandler(FileSystemEventHandler):
             print(f"Video file found: {file_path}")
             # Check if the file is in the database
             file_name = os.path.basename(file_path)
-            File = Query()
-            result = db.search(File.filename == file_name)
+            file = Query()
+            result = db.search(file.filename == file_name)
             if result:
                 print(f"File found in database: {file_name}")
                 # Copy the file to the downloads folder
@@ -90,5 +91,7 @@ def process_existing_files(folder, handler):
                     # Copy the file to the downloads folder
                     dst_file = os.path.join(handler.downloads_folder, file_name)
                     copy_file_with_progress(file_path, dst_file)
+                    print('Removing from InRD Database.')
+                    db.remove(file.filename == file_name)
                 else:
                     print(f"File not found in database: {file_name}")

@@ -1,20 +1,20 @@
 import os
 from dotenv import load_dotenv
 from watchdog.observers import Observer
-
-import db
+from watchdog.observers.polling import PollingObserver
 from monitor import MagnetFileHandler, RcloneFileHandler, process_existing_files
 import time
 
 load_dotenv()
+
+print('starting')
 
 # Set up the folders to monitor
 magnet_folder = os.getenv('ARR_TORRENTS_PATH')
 downloads_folder = os.getenv('ARR_DOWNLOAD_PATH')
 rclone_folder = os.getenv('RCLONE_PATH')
 
-# Create db if not already created
-db.create_rd_db()
+
 
 # Create observers for both folders
 magnet_event_handler = MagnetFileHandler()
@@ -24,7 +24,7 @@ rclone_event_handler = RcloneFileHandler(downloads_folder)
 process_existing_files(rclone_folder, rclone_event_handler)
 
 magnet_observer = Observer()
-rclone_observer = Observer()
+rclone_observer = PollingObserver()
 
 magnet_observer.schedule(magnet_event_handler, magnet_folder, recursive=True)
 rclone_observer.schedule(rclone_event_handler, rclone_folder, recursive=True)
