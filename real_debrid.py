@@ -61,7 +61,6 @@ def upload_magnet_to_realdebrid(magnet_link):
     # Step 2: Get torrent info to list files
     torrent_info = get_torrent_info(torrent_id)
     print(f"Torrent status: {torrent_info['status']}")
-    print(f"Full torrent info: {torrent_info}")  # Debugging: Print full response
 
     # Step 3: Filter video files
     video_files = []

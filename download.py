@@ -24,8 +24,3 @@ def copy_file_with_progress(src, dst):
                 pbar.update(len(buf))  # Update the progress bar
 
     print(f"File copied successfully to: {dst}")
-
-# Example usage
-src_file = r"Z:\__all__\Anora.2024.iTA-ENG.WEBDL.2160p.HEVC.HDR.x265-CYBER\Anora.2024.iTA-ENG.WEBDL.2160p.HEVC.HDR.x265-CYBER.mkv"
-dst_file = r"E:\Downloads\blackhole\radarr\Anora.2024.iTA-ENG.WEBDL.2160p.HEVC.HDR.x265-CYBER.mkv"
-copy_file_with_progress(src_file, dst_file)
