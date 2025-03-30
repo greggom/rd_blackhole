@@ -7,4 +7,4 @@ def create_rd_db():
         print('Database not created. Creating now.')
         with open('InRD.json', 'w') as file:
             file.write('{}')
-        print('Datbase has been created')
+        print('Database has been created')
