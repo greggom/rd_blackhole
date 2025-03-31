@@ -1,97 +1,78 @@
 import os
 import time
-
 from watchdog.events import FileSystemEventHandler
-from real_debrid import upload_magnet_to_realdebrid  # Import the function
-from download import copy_file_with_progress  # Import the file copy function
+from real_debrid import upload_magnet_to_realdebrid
+from download import copy_file_with_progress
 from tinydb import TinyDB, Query
-from arrs import get_arr_folder  # Import the function to determine the arr folder
+from arrs import get_arr_folder
+
+def wait():
+    time.sleep(1)
 
 # Initialize TinyDB
 db = TinyDB('InRD.json')
 
 class MagnetFileHandler(FileSystemEventHandler):
     def on_created(self, event):
-        """
-        Triggered when a file or directory is created in the magnet folder.
-        """
+        """Triggered when a file or directory is created in the magnet folder."""
         file_path = event.src_path
         print(f"Created: {file_path}")
-        time.sleep(.5)
+        time.sleep(0.5)
 
-        # Check if the file is a .magnet file
         if file_path.endswith(".magnet"):
             print(f"Processing .magnet file: {file_path}")
-            # Read the magnet link from the file
             with open(file_path, 'r') as file:
                 magnet_link = file.read().strip()
-                # Upload the magnet link to Real-Debrid
-                result = upload_magnet_to_realdebrid(magnet_link)
+                result = upload_magnet_to_realdebrid(magnet_link=magnet_link, magnet_file_path=file_path)
                 if result:
-                    # Determine the arr folder
                     arr_folder = get_arr_folder(file_path)
                     if arr_folder:
-                        # Write to the database
-                        db.insert(
-                            {
-                            "filename": result["filename"],
-                            "arr_folder": arr_folder
-                            }
-                        )
-                        print(f"Added to database: {result['filename']} (arr_folder: {arr_folder})")
+                        for file_name in result['filename']:
+                            print(file_name)
+                            db.insert({"filename": file_name, "arr_folder": arr_folder})
+                            print(f"Added to database: {file_name} (arr_folder: {arr_folder})")
+                            wait()
 
 class RcloneFileHandler(FileSystemEventHandler):
     def __init__(self, downloads_folder):
         self.downloads_folder = downloads_folder
 
     def on_created(self, event):
-        """
-        Triggered when a file or directory is created in the rclone folder.
-        """
+        """Triggered when a file or directory is created in the rclone folder."""
         file_path = event.src_path
         print(f"Created in rclone folder: {file_path}")
         self.process_file(file_path)
 
     def process_file(self, file_path):
-        """
-        Process a file in the rclone folder.
-        """
-        # Check if the file is a video file
+        """Process a file in the rclone folder."""
         if any(file_path.lower().endswith(ext) for ext in [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".m4v"]):
-            print(f"Video file found: {file_path}")
-            # Check if the file is in the database
             file_name = os.path.basename(file_path)
+            file_name_match = file_name.lower()
             file = Query()
-            result = db.search(file.filename == file_name)
+            result = db.search(file.filename == file_name_match)
+            print(f'Result: {result}')
             if result:
+                arr_folder = result[0]['arr_folder']
                 print(f"File found in database: {file_name}")
-                # Copy the file to the downloads folder
-                dst_file = os.path.join(self.downloads_folder, file_name)
+                dst_file = os.path.join(arr_folder, file_name)
                 copy_file_with_progress(file_path, dst_file)
-            else:
-                print(f"File not found in database: {file_name}")
+                db.remove(file.filename == file_name_match)
+                wait()
 
 def process_existing_files(folder, handler):
-    """
-    Process existing files in the folder when the script starts.
-    Only copy the file if its filename is found in the InRD.json TinyDB file.
-    """
+    """Process existing files in the folder when the script starts."""
     for root, _, files in os.walk(folder):
         for file in files:
             file_path = os.path.join(root, file)
-            # Check if the file is a video file
             if any(file.lower().endswith(ext) for ext in [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".m4v"]):
-                print(f"Video file found: {file_path}")
-                # Check if the file is in the database
                 file_name = os.path.basename(file_path)
+                file_name_match = file_name.lower()
                 file = Query()
-                result = db.search(file.filename == file_name)
+                result = db.search(file.filename == file_name_match)
                 if result:
+                    arr_folder = result[0]['arr_folder']
                     print(f"File found in database: {file_name}")
-                    # Copy the file to the downloads folder
-                    dst_file = os.path.join(handler.downloads_folder, file_name)
+                    dst_file = os.path.join(arr_folder, file_name)
                     copy_file_with_progress(file_path, dst_file)
-                    print('Removing from InRD Database.')
-                    db.remove(file.filename == file_name)
-                else:
-                    print(f"File not found in database: {file_name}")
+                    db.remove(file.filename == file_name_match)
+                    wait()

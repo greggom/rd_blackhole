@@ -41,7 +41,7 @@ def remove_torrent(torrent_id):
 
     print(f"Torrent {torrent_id} removed from Real-Debrid.")
 
-def upload_magnet_to_realdebrid(magnet_link):
+def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
     """
     Upload a magnet link to Real-Debrid, select only video files for download,
     and handle cases where the torrent is not cached.
@@ -50,6 +50,7 @@ def upload_magnet_to_realdebrid(magnet_link):
     add_magnet_url = f"{base_url}/torrents/addMagnet"
     headers = {"Authorization": f"Bearer {rd_api_token}"}
     data = {"magnet": magnet_link}
+    print(f"data {data}")
     response = requests.post(add_magnet_url, headers=headers, data=data)
 
     if response.status_code != 201:
@@ -64,11 +65,13 @@ def upload_magnet_to_realdebrid(magnet_link):
 
     # Step 3: Filter video files
     video_files = []
+    video_files_names = []
     if "files" in torrent_info and torrent_info["files"]:
         for file in torrent_info["files"]:
-            file_name = file["path"].lower()
-            if any(file_name.endswith(ext) for ext in VIDEO_EXTENSIONS):
+            file_name = file["path"].lower().lstrip('/')
+            if any(file_name.endswith(ext) for ext in VIDEO_EXTENSIONS) and "sample" not in file_name:
                 video_files.append(str(file["id"]))  # Convert ID to string
+                video_files_names.append(file_name)
                 print(f"Video file found: {file['path']}")
     else:
         print("No files found in the torrent or 'files' key is missing.")
@@ -95,7 +98,12 @@ def upload_magnet_to_realdebrid(magnet_link):
         elif torrent_info["status"] == "error" or torrent_info["status"] == "dead":
             print("Torrent is not cached on Real-Debrid.")
             # Step 6: Store in TinyDB
-            db.insert({"id": torrent_id, "filename": torrent_info["filename"]})
+            db.insert(
+                {
+                    "id": torrent_id,
+                    "filename": torrent_info["filename"]
+                }
+            )
             print(f"Added to not_cached database: {torrent_info['filename']} (ID: {torrent_id})")
             # Step 7: Remove the torrent from Real-Debrid
             remove_torrent(torrent_id)
@@ -103,14 +111,21 @@ def upload_magnet_to_realdebrid(magnet_link):
         print("Torrent is still downloading. Waiting...")
         time.sleep(10)  # Wait 10 seconds before checking again
 
-    # Step 8: Return the filename and ID
+    # Step 8: Delete the .magnet file if the path is provided
+    if magnet_file_path and os.path.exists(magnet_file_path):
+        try:
+            os.remove(magnet_file_path)
+            print(f"Deleted .magnet file: {magnet_file_path}")
+        except Exception as e:
+            print(f"Failed to delete .magnet file: {e}")
+
+    # Step 9: Return the filename and ID
     return {
         "id": torrent_info["id"],
-        "filename": torrent_info["filename"]
+        "filename": video_files_names
     }
-#
 # # Example usage
-# magnet_link = 'magnet:?xt=urn:btih:A83B750AB1BAD07BA8C1DEF37CE5825D1E597CD5&dn=Fantastic+Beasts+-+The+Crimes+of+Grindelwald+(2018)+(2160p+BluRay+x265+10bit+HDR+Tigole)+mkv&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zsw.ca%3a6969%2fannounce'
+# magnet_link = 'magnet:?xt=urn:btih:E738C8D2BA12C9923847935976D52F49D51070BA&dn=Cobra+Kai+S06+2160p+NF+WEB-DL+DV+HDR+H+265&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zsw.ca%3a6969%2fannounce'
 # result = upload_magnet_to_realdebrid(magnet_link)
 # if result:
 #     print(f"Torrent ID: {result['id']}")
