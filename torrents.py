@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 import os.path
 import bencodepy
 import hashlib
-import base64
 
 load_dotenv()
 

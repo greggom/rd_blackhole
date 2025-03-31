@@ -32,7 +32,7 @@ def copy_file_with_progress(src, dst, max_retries=max_retries, retry_delay=2):
                 # Copy the file with a callback to update the progress bar
                 with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
                     while True:
-                        buf = fsrc.read(1024 * 1024)  # Read in chunks of 1MB
+                        buf = fsrc.read((1024 * 1024) * 2)  # Read in chunks of 1MB
                         if not buf:
                             break
                         fdst.write(buf)

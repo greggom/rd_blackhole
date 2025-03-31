@@ -24,15 +24,18 @@ db.create_rd_db()
 magnet_event_handler = MagnetFileHandler()
 rclone_event_handler = RcloneFileHandler(downloads_folder)
 
-def run_process_existing_files():
+def run_process_existing_files(execpt=None):
     """
     Run the process_existing_files function.
     """
     print('Checking for existing files.')
-    process_existing_files(rclone_folder, rclone_event_handler)
+    try:
+        process_existing_files(rclone_folder, rclone_event_handler)
+    except Exception as e:
+        print(f"Error, could not check existing files.\nError: {e}")
 
 # Schedule the function to run every hour
-schedule.every().hour.do(run_process_existing_files)
+schedule.every(5).minutes.do(run_process_existing_files)
 
 # Run the scheduled task once at the beginning
 run_process_existing_files()

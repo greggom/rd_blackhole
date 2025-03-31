@@ -50,7 +50,6 @@ class RcloneFileHandler(FileSystemEventHandler):
             file_name_match = file_name.lower()
             file = Query()
             result = db.search(file.filename == file_name_match)
-            print(f'Result: {result}')
             if result:
                 arr_folder = result[0]['arr_folder']
                 print(f"File found in database: {file_name}")
