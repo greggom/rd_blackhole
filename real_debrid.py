@@ -3,6 +3,7 @@ import time
 from dotenv import load_dotenv
 import requests
 from arrs import search_and_mark_failed
+from torrents import delete_file_with_retry
 
 load_dotenv()
 rd_api_token = os.getenv('RD_APITOKEN')
@@ -118,11 +119,8 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
 
     # Step 7: Delete the .magnet file if the path is provided
     if magnet_file_path and os.path.exists(magnet_file_path):
-        try:
-            os.remove(magnet_file_path)
-            print(f"Deleted .magnet file: {magnet_file_path}")
-        except Exception as e:
-            print(f"Failed to delete .magnet file: {e}")
+        delete_file_with_retry(magnet_file_path)
+
 
     # Step 8: Return the filename and ID
     return {

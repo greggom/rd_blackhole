@@ -4,6 +4,7 @@ from watchdog.events import FileSystemEventHandler
 from real_debrid import upload_magnet_to_realdebrid
 from download import copy_file_with_progress
 from arrs import get_arr_folder
+from torrents import read_magnet_file
 
 def wait():
     time.sleep(1)
@@ -29,7 +30,7 @@ class MagnetFileHandler(FileSystemEventHandler):
         print("Checking for existing .magnet files...")
         for root, _, files in os.walk(self.magnet_folder):
             for file in files:
-                if file.endswith(".magnet"):
+                if file.endswith(".magnet") or file.endswith(".torrent"):
                     file_path = os.path.join(root, file)
                     self.process_magnet_file(file_path)
 
@@ -39,7 +40,7 @@ class MagnetFileHandler(FileSystemEventHandler):
         """
         print(f"Processing existing .magnet file: {file_path}")
         with open(file_path, 'r') as file:
-            magnet_link = file.read().strip()
+            magnet_link = read_magnet_file(file_path)
             result = upload_magnet_to_realdebrid(magnet_link=magnet_link, magnet_file_path=file_path)
             if result:
                 arr_folder = get_arr_folder(file_path)
@@ -57,7 +58,7 @@ class MagnetFileHandler(FileSystemEventHandler):
         print(f"Created: {file_path}")
         time.sleep(0.5)
 
-        if file_path.endswith(".magnet"):
+        if file_path.endswith(".magnet") or file_path.endswith(".torrent"):
             print(f"Processing new .magnet file: {file_path}")
             self.process_magnet_file(file_path)
 

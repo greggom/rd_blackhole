@@ -126,6 +126,18 @@ def search_and_mark_failed_in_sonarr(release_title):
         response.raise_for_status()
 
         print(f"Release '{release_title}' marked as failed in Sonarr.")
+
+        # Step 4: Trigger a new search for the item
+        search_url = f"{SONARR_BASE_URL}/api/v3/command"
+        search_data = {
+            "name": "EpisodeSearch",
+            "episodeIds": [episode["id"] for episode in release_found["episodes"]]
+        }
+
+        response = requests.post(search_url, headers=headers, json=search_data)
+        response.raise_for_status()
+
+        print(f"New search triggered for '{release_title}' in Sonarr.")
         return True
 
     except requests.exceptions.RequestException as e:
@@ -175,6 +187,17 @@ def search_and_mark_failed_in_radarr(release_title):
         response.raise_for_status()
 
         print(f"Release '{release_title}' marked as failed in Radarr.")
+
+        search_url = f"{RADARR_BASE_URL}/api/v3/command"
+        search_data = {
+            "name": "MoviesSearch",
+            "movieIds": [release_found["movieId"]]
+        }
+
+        response = requests.post(search_url, headers=headers, json=search_data)
+        response.raise_for_status()
+
+        print(f"New search triggered for '{release_found['movieId']}' in Radarr.")
         return True
 
     except requests.exceptions.RequestException as e:
