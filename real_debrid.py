@@ -59,15 +59,15 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
 
     # Step 2: Get torrent info to list files
     torrent_info = get_torrent_info(torrent_id)
-    print(f"Torrent status: {torrent_info['status']}")
 
     # Step 3: Filter video files
     video_files = []
     video_files_names = []
     if "files" in torrent_info and torrent_info["files"]:
         for file in torrent_info["files"]:
-            file_name = file["path"].lower().lstrip('/')
-            if any(file_name.endswith(ext) for ext in VIDEO_EXTENSIONS) and "sample" not in file_name:
+            file_name = file["path"].lstrip('/')
+            file_name_lower = file_name.lower()
+            if any(file_name_lower.endswith(ext) for ext in VIDEO_EXTENSIONS) and "sample" not in file_name_lower:
                 video_files.append(str(file["id"]))  # Convert ID to string
                 video_files_names.append(file_name)
                 print(f"Video file found: {file['path']}")

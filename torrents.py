@@ -29,6 +29,8 @@ def extract_magnet_from_torrent(torrent_file_path):
 
     # Create the magnet link
     magnet_link = f"magnet:?xt=urn:btih:{info_hash_hex}&dn={metadata[b'info'][b'name'].decode()}"
+
+    f.close()
     return magnet_link
 
 def read_magnet_file(file_path):
@@ -61,7 +63,7 @@ def read_magnet_file(file_path):
         print(f"Error reading the file: {e}")
         return None
 
-def delete_file_with_retry(file_path, max_retries=3, delay=2):
+def delete_file_with_retry(file_path, max_retries=6, delay=10):
     for attempt in range(max_retries):
         try:
             os.remove(file_path)

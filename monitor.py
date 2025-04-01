@@ -3,7 +3,7 @@ import time
 from watchdog.events import FileSystemEventHandler
 from real_debrid import upload_magnet_to_realdebrid
 from download import copy_file_with_progress
-from arrs import get_arr_folder
+from arrs import get_arr_folder, create_locked_mkv_file, delete_blank_mkv_file
 from torrents import read_magnet_file
 
 def wait():
@@ -27,7 +27,7 @@ class MagnetFileHandler(FileSystemEventHandler):
         """
         Process existing .magnet files in the magnet folder when the script starts.
         """
-        print("Checking for existing .magnet files...")
+        print("Checking for existing magnet/torrent files...")
         for root, _, files in os.walk(self.magnet_folder):
             for file in files:
                 if file.endswith(".magnet") or file.endswith(".torrent"):
@@ -38,17 +38,21 @@ class MagnetFileHandler(FileSystemEventHandler):
         """
         Process a single .magnet file.
         """
-        print(f"Processing existing .magnet file: {file_path}")
-        with open(file_path, 'r') as file:
-            magnet_link = read_magnet_file(file_path)
-            result = upload_magnet_to_realdebrid(magnet_link=magnet_link, magnet_file_path=file_path)
-            if result:
-                arr_folder = get_arr_folder(file_path)
-                if arr_folder:
-                    for file_name in result['filename']:
-                        self.magnet_queue.put({"filename": file_name, "arr_folder": arr_folder})
-                        print(f"Added to queue: {file_name} (arr_folder: {arr_folder})")
-                        wait()
+        print(f"Processing magnet/torrent file: {file_path}")
+        magnet_link = read_magnet_file(file_path)
+        result = upload_magnet_to_realdebrid(magnet_link=magnet_link, magnet_file_path=file_path)
+        if result:
+            arr_folder = get_arr_folder(file_path)
+            if arr_folder:
+                for file_name in result['filename']:
+                    self.magnet_queue.put({"filename": file_name, "arr_folder": arr_folder})
+                    print(f"Added to queue: {file_name} (arr_folder: {arr_folder})")
+                    wait()
+
+                    # Create a blank locked .mkv file in the arr_folder
+                    mkv_file_path = os.path.join(arr_folder, file_name)
+                    create_locked_mkv_file(mkv_file_path)
+
 
     def on_created(self, event):
         """
@@ -59,7 +63,6 @@ class MagnetFileHandler(FileSystemEventHandler):
         time.sleep(0.5)
 
         if file_path.endswith(".magnet") or file_path.endswith(".torrent"):
-            print(f"Processing new .magnet file: {file_path}")
             self.process_magnet_file(file_path)
 
 class RcloneFileHandler(FileSystemEventHandler):
@@ -88,12 +91,17 @@ class RcloneFileHandler(FileSystemEventHandler):
                     file_found = False
                     for root, _, files in os.walk(self.rclone_folder):
                         for entry_name in files:
-                            if entry_name.lower() == file_name:  # Compare filenames in lowercase
+                            if entry_name == file_name:  # Compare filenames in lowercase
                                 file_path = os.path.join(root, entry_name)
                                 print(f"File found in rclone folder: {file_path}")
+
+                                # Delete the blank locked .mkv file before copying the actual file
+                                mkv_file_path = os.path.join(arr_folder, file_name)
+                                delete_blank_mkv_file(mkv_file_path)
+
+                                # Copy the actual file to the arr_folder
                                 dst_file = os.path.join(arr_folder, file_name)
                                 copy_file_with_progress(file_path, dst_file)
-                                print(f"Copied file to: {dst_file}")
                                 file_found = True
                                 break
                         if file_found:

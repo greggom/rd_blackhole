@@ -203,3 +203,46 @@ def search_and_mark_failed_in_radarr(release_title):
     except requests.exceptions.RequestException as e:
         print(f"Error interacting with Radarr API: {e}")
         return False
+
+def create_locked_mkv_file(file_path):
+    """
+    Create a blank locked .mkv file at the specified path.
+    """
+    try:
+        # Create the directory if it doesn't exist
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        # Create a blank .mkv file
+        f = open(file_path, 'wb')
+        f.write(b'')  # Write an empty byte string to create the file
+
+        # Lock the file (platform-specific)
+        if os.name == 'posix':  # Linux/macOS
+            import fcntl
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        elif os.name == 'nt':  # Windows
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+
+        print(f"Created and locked blank .mkv file: {file_path}")
+    except Exception as e:
+        print(f"Failed to create or lock .mkv file: {e}")
+    finally:
+        # Close the file after locking
+        if 'f' in locals():
+            f.close()
+
+def delete_blank_mkv_file(file_path):
+    """
+    Delete the blank locked .mkv file at the specified path.
+    """
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Deleted blank .mkv file: {file_path}")
+        else:
+            print(f"Blank .mkv file not found: {file_path}")
+    except Exception as e:
+        print(f"Failed to delete blank .mkv file: {e}")
+
+

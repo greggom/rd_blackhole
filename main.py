@@ -33,7 +33,7 @@ if os.path.exists(queue_file):
                 magnet_queue.put(saved_queue.get())
         print("Loaded queue from file.")
     except Exception as e:
-        print(f"Error loading queue from file: {e}")
+        print(f"Queue Empty: {e}")
 
 # Create a lock to ensure only one item is processed at a time in RcloneFileHandler
 rclone_lock = threading.Lock()
