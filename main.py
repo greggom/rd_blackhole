@@ -1,5 +1,5 @@
 import os
-import schedule
+import queue
 from dotenv import load_dotenv
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
@@ -10,7 +10,7 @@ import time
 
 load_dotenv()
 
-print('starting')
+print('Starting monitors...')
 
 # Set up the folders to monitor
 magnet_folder = os.getenv('ARR_TORRENTS_PATH')
@@ -20,29 +20,14 @@ rclone_folder = os.getenv('RCLONE_PATH')
 # Create db for first time
 db.create_rd_db()
 
-# Create observers for both folders
-magnet_event_handler = MagnetFileHandler()
-rclone_event_handler = RcloneFileHandler(downloads_folder)
+# Create a queue to store new magnets
+magnet_queue = queue.Queue()
 
-def run_process_existing_files(execpt=None):
-    """
-    Run the process_existing_files function.
-    """
-    print('Checking for existing files.')
-    try:
-        process_existing_files(rclone_folder, rclone_event_handler)
-    except Exception as e:
-        print(f"Error, could not check existing files.\nError: {e}")
+# Create observers for both folders and pass the same queue
+magnet_event_handler = MagnetFileHandler(magnet_folder, magnet_queue)
+rclone_event_handler = RcloneFileHandler(downloads_folder, magnet_queue)
 
-# Schedule the function to run every hour
-schedule.every(5).minutes.do(run_process_existing_files)
-
-# Run the scheduled task once at the beginning
-run_process_existing_files()
-
-# Process existing files in the rclone folder before starting the observer
-process_existing_files(rclone_folder, rclone_event_handler)
-
+# Create and start the observers
 magnet_observer = Observer()
 rclone_observer = PollingObserver()
 
@@ -56,9 +41,12 @@ rclone_observer.start()
 print(f"Monitoring magnet folder: {magnet_folder}")
 print(f"Monitoring rclone folder: {rclone_folder}")
 
+# Process existing files in the rclone folder after starting the observers
+process_existing_files(rclone_folder, rclone_event_handler)
+
 try:
     while True:
-        time.sleep(1)
+        time.sleep(1)  # Keep the main thread alive
 except KeyboardInterrupt:
     magnet_observer.stop()
     rclone_observer.stop()
