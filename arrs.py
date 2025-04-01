@@ -1,17 +1,19 @@
 import os
-from traceback import print_tb
+import requests
 from dotenv import load_dotenv
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
 
 load_dotenv()
 sonarr_enabled = bool(os.getenv('SONARR'))
 radarr_enabled = bool(os.getenv('RADARR'))
 radarr_folder = os.path.join(os.getenv('ARR_TORRENTS_PATH'), 'radarr')
 sonarr_folder = os.path.join(os.getenv('ARR_TORRENTS_PATH'), 'sonarr')
+SONARR_API_KEY = os.getenv('SONARR_API')
+SONARR_BASE_URL = os.getenv('SONARR_BASE_URL')
+RADARR_API_KEY = os.getenv('RADARR_API')
+RADARR_BASE_URL = os.getenv('RADARR_BASE_URL')
 torrent_path = os.getenv('ARR_TORRENTS_PATH')
 download_path = os.getenv('ARR_DOWNLOAD_PATH')
+
 
 def arrs_folders():
     enabled = {
@@ -56,3 +58,125 @@ def get_arr_folder(file_path):
         return sonarr_downloads
     else:
         return None
+
+
+
+def search_and_mark_failed(release_title, file_path):
+    """
+    Search for a release in Sonarr or Radarr's history and mark it as failed.
+    """
+    # Determine if the release is from Sonarr or Radarr
+    if file_path.startswith(os.path.normpath(os.path.join(os.getenv('ARR_TORRENTS_PATH'), 'sonarr'))):
+        print("Release is from Sonarr.")
+        return search_and_mark_failed_in_sonarr(release_title)
+    elif file_path.startswith(os.path.normpath(os.path.join(os.getenv('ARR_TORRENTS_PATH'), 'radarr'))):
+        print("Release is from Radarr.")
+        return search_and_mark_failed_in_radarr(release_title)
+    else:
+        print("Release is not from Sonarr or Radarr.")
+        return False
+
+def search_and_mark_failed_in_sonarr(release_title):
+    """
+    Search for a release in Sonarr's history and mark it as failed.
+    """
+    if not SONARR_API_KEY or not SONARR_BASE_URL:
+        raise ValueError("Sonarr API key or base URL is not set in the environment variables.")
+
+    # Step 1: Search for the release in Sonarr's history
+    history_url = f"{SONARR_BASE_URL}/api/v3/history"
+    headers = {"X-Api-Key": SONARR_API_KEY}
+    params = {"page": 1, "pageSize": 100, "sortKey": "date", "sortDirection": "descending", "eventType": 1}
+
+    try:
+        response = requests.get(history_url, headers=headers, params=params)
+        response.raise_for_status()
+        history = response.json()
+
+        # Step 2: Find the release in the history
+        release_found = None
+        for record in history["records"]:
+            if record["sourceTitle"] == release_title:
+                release_found = record
+                break
+
+        if not release_found:
+            print(f"Release '{release_title}' not found in Sonarr history.")
+            return False
+
+        # Step 3: Mark the release as failed
+        mark_failed_url = f"{SONARR_BASE_URL}/api/v3/history/failed"
+        data = {
+            "id": release_found["id"],
+            "seriesId": release_found["seriesId"],
+            "episodeIds": [episode["id"] for episode in release_found["episodes"]],
+            "sourceTitle": release_found["sourceTitle"],
+            "quality": release_found["quality"],
+            "language": release_found["language"],
+            "customFormatScore": release_found["customFormatScore"],
+            "size": release_found["size"],
+            "indexer": release_found["indexer"],
+            "downloadClient": release_found["downloadClient"],
+            "downloadClientId": release_found["downloadClientId"],
+            "reason": "ManualFailure",  # Reason for marking as failed
+            "type": "manual"  # Type of failure
+        }
+
+        response = requests.post(mark_failed_url, headers=headers, json=data)
+        response.raise_for_status()
+
+        print(f"Release '{release_title}' marked as failed in Sonarr.")
+        return True
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error interacting with Sonarr API: {e}")
+        return False
+
+def search_and_mark_failed_in_radarr(release_title):
+    """
+    Search for a release in Radarr's history and mark it as failed.
+    """
+    if not RADARR_API_KEY or not RADARR_BASE_URL:
+        raise ValueError("Radarr API key or base URL is not set in the environment variables.")
+
+    # Step 1: Search for the release in Radarr's history
+    history_url = f"{RADARR_BASE_URL}/api/v3/history"
+    headers = {"X-Api-Key": RADARR_API_KEY}
+    params = {"page": 1, "pageSize": 100, "sortKey": "date", "sortDirection": "descending", "eventType": 1}
+
+    try:
+        response = requests.get(history_url, headers=headers, params=params)
+        response.raise_for_status()
+        history = response.json()
+
+        # Step 2: Find the release in the history
+        release_found = None
+        for record in history["records"]:
+            if record["sourceTitle"] == release_title:
+                release_found = record
+                break
+
+        if not release_found:
+            print(f"Release '{release_title}' not found in Radarr history.")
+            return False
+
+        # Step 3: Mark the release as failed
+        mark_failed_url = f"{RADARR_BASE_URL}/api/v3/history/failed/{release_found['id']}"
+        data = {
+            "movieId": release_found["movieId"],
+            "sourceTitle": release_found["sourceTitle"],
+            "quality": release_found["quality"],
+            "customFormatScore": release_found["customFormatScore"],
+            "reason": "ManualFailure",  # Reason for marking as failed
+            "type": "manual"  # Type of failure
+        }
+
+        response = requests.post(mark_failed_url, headers=headers, json=data)
+        response.raise_for_status()
+
+        print(f"Release '{release_title}' marked as failed in Radarr.")
+        return True
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error interacting with Radarr API: {e}")
+        return False

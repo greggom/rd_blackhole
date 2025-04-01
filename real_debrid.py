@@ -2,14 +2,12 @@ import os
 import time
 from dotenv import load_dotenv
 import requests
-from tinydb import TinyDB, Query
+from arrs import search_and_mark_failed
 
 load_dotenv()
 rd_api_token = os.getenv('RD_APITOKEN')
 base_url = "https://api.real-debrid.com/rest/1.0"
 
-# Initialize TinyDB
-db = TinyDB('not_cached.json')
 
 # List of video file extensions
 VIDEO_EXTENSIONS = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".m4v"]
@@ -50,7 +48,6 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
     add_magnet_url = f"{base_url}/torrents/addMagnet"
     headers = {"Authorization": f"Bearer {rd_api_token}"}
     data = {"magnet": magnet_link}
-    print(f"data {data}")
     response = requests.post(add_magnet_url, headers=headers, data=data)
 
     if response.status_code != 201:
@@ -90,28 +87,36 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
 
     print("Video files selected for download.")
 
-    # Step 5: Wait for the torrent to finish downloading
+    # Step 5: Check if the torrent is cached
+    torrent_info = get_torrent_info(torrent_id)
+    if torrent_info["status"] == "queued": # "waiting_files_selection":
+        print("Torrent is not cached on Real-Debrid and needs to be downloaded.")
+        remove_torrent(torrent_id)  # Remove the torrent if it needs to be downloaded
+        # Mark the release as failed in Sonarr or Radarr
+        if magnet_file_path:
+            release_title = os.path.basename(magnet_file_path).replace(".magnet", "")
+            search_and_mark_failed(release_title, magnet_file_path)
+        return None
+
+
+    # Step 6: Wait for the torrent to finish downloading
     while True:
         torrent_info = get_torrent_info(torrent_id)
         if torrent_info["status"] == "downloaded":
             break
         elif torrent_info["status"] == "error" or torrent_info["status"] == "dead":
-            print("Torrent is not cached on Real-Debrid.")
-            # Step 6: Store in TinyDB
-            db.insert(
-                {
-                    "id": torrent_id,
-                    "filename": torrent_info["filename"]
-                }
-            )
-            print(f"Added to not_cached database: {torrent_info['filename']} (ID: {torrent_id})")
-            # Step 7: Remove the torrent from Real-Debrid
-            remove_torrent(torrent_id)
+            print("Torrent encountered an error or is dead.")
+            remove_torrent(torrent_id)  # Remove the torrent if it encounters an error
+            # Mark the release as failed in Sonarr or Radarr
+            if magnet_file_path:
+                release_title = os.path.basename(magnet_file_path).replace(".magnet", "")
+                search_and_mark_failed(release_title, magnet_file_path)
             return None
         print("Torrent is still downloading. Waiting...")
         time.sleep(10)  # Wait 10 seconds before checking again
 
-    # Step 8: Delete the .magnet file if the path is provided
+
+    # Step 7: Delete the .magnet file if the path is provided
     if magnet_file_path and os.path.exists(magnet_file_path):
         try:
             os.remove(magnet_file_path)
@@ -119,7 +124,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
         except Exception as e:
             print(f"Failed to delete .magnet file: {e}")
 
-    # Step 9: Return the filename and ID
+    # Step 8: Return the filename and ID
     return {
         "id": torrent_info["id"],
         "filename": video_files_names
