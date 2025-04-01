@@ -105,39 +105,41 @@ def search_and_mark_failed_in_sonarr(release_title):
             return False
 
         # Step 3: Mark the release as failed
-        mark_failed_url = f"{SONARR_BASE_URL}/api/v3/history/failed"
+        mark_failed_url = f"{SONARR_BASE_URL}/api/v3/history/failed/{release_found['id']}"
         data = {
             "id": release_found["id"],
             "seriesId": release_found["seriesId"],
-            "episodeIds": [episode["id"] for episode in release_found["episodes"]],
             "sourceTitle": release_found["sourceTitle"],
             "quality": release_found["quality"],
-            "language": release_found["language"],
             "customFormatScore": release_found["customFormatScore"],
-            "size": release_found["size"],
-            "indexer": release_found["indexer"],
-            "downloadClient": release_found["downloadClient"],
-            "downloadClientId": release_found["downloadClientId"],
             "reason": "ManualFailure",  # Reason for marking as failed
             "type": "manual"  # Type of failure
         }
+
+        # Add episodeIds if the release has episodes
+        if "episodes" in release_found:
+            data["episodeIds"] = [episode["id"] for episode in release_found["episodes"]]
 
         response = requests.post(mark_failed_url, headers=headers, json=data)
         response.raise_for_status()
 
         print(f"Release '{release_title}' marked as failed in Sonarr.")
 
-        # Step 4: Trigger a new search for the item
-        search_url = f"{SONARR_BASE_URL}/api/v3/command"
-        search_data = {
-            "name": "EpisodeSearch",
-            "episodeIds": [episode["id"] for episode in release_found["episodes"]]
-        }
+        # Step 4: Trigger a new search for the item if it has episodes
+        if "episodes" in release_found:
+            search_url = f"{SONARR_BASE_URL}/api/v3/command"
+            search_data = {
+                "name": "EpisodeSearch",
+                "episodeIds": [episode["id"] for episode in release_found["episodes"]]
+            }
 
-        response = requests.post(search_url, headers=headers, json=search_data)
-        response.raise_for_status()
+            response = requests.post(search_url, headers=headers, json=search_data)
+            response.raise_for_status()
 
-        print(f"New search triggered for '{release_title}' in Sonarr.")
+            print(f"New search triggered for '{release_title}' in Sonarr.")
+        else:
+            print(f"No episodes found for release '{release_title}'. Skipping search trigger.")
+
         return True
 
     except requests.exceptions.RequestException as e:

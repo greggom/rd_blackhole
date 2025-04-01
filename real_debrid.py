@@ -52,7 +52,15 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
     response = requests.post(add_magnet_url, headers=headers, data=data)
 
     if response.status_code != 201:
-        raise Exception(f"Failed to add magnet link: {response.text}")
+        error_data = response.json()
+        if error_data.get("error_code") == 35:  # Infringing file error
+            print("Torrent contains infringing content. Marking as failed and triggering a new search.")
+            if magnet_file_path:
+                release_title = os.path.basename(magnet_file_path).replace(".magnet", "")
+                search_and_mark_failed(release_title, magnet_file_path)
+            return None
+        else:
+            raise Exception(f"Failed to add magnet link: {response.text}")
 
     torrent_id = response.json()["id"]
     print(f"Magnet link added. Torrent ID: {torrent_id}")
