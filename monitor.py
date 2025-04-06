@@ -3,7 +3,7 @@ import time
 from watchdog.events import FileSystemEventHandler
 from real_debrid import upload_magnet_to_realdebrid
 from download import copy_file_with_progress
-from arrs import get_arr_folder, create_locked_mkv_file, delete_blank_mkv_file
+from arrs import get_arr_folder, create_locked_mkv_file, delete_blank_mkv_file, search_and_mark_failed
 from torrents import read_magnet_file
 
 def wait():
@@ -74,6 +74,8 @@ class RcloneFileHandler(FileSystemEventHandler):
         self.magnet_queue = magnet_queue
         self.rclone_lock = rclone_lock
         self.running = True  # Flag to control the loop
+        self.file_timeout = 60 * 60
+        self.file_timers = {}
 
     def start_processing(self):
         """
@@ -86,6 +88,10 @@ class RcloneFileHandler(FileSystemEventHandler):
                     item = self.magnet_queue.get()
                     file_name = item["filename"]  # Filename in the queue is already lowercase
                     arr_folder = item["arr_folder"]
+
+                    # Initialize the timer for the file if it's not already being tracked
+                    if file_name not in self.file_timers:
+                        self.file_timers[file_name] = time.time()
 
                     # Search for the file by name in the rclone folder and its subfolders
                     file_found = False
@@ -108,9 +114,23 @@ class RcloneFileHandler(FileSystemEventHandler):
                             break
 
                     if not file_found:
-                        # If the file doesn't exist, put it back in the queue for later processing
-                        self.magnet_queue.put(item)
-                        print(f"File not found: {file_name}. Retrying later...")
+                        # Check if the file has been in the queue for longer than the timeout
+                        if time.time() - self.file_timers[file_name] > self.file_timeout:
+                            print(
+                                f"File not found after 1 hour: {file_name}. Marking as failed and triggering a new search.")
+                            # Mark the release as failed in Sonarr or Radarr
+                            release_title = os.path.splitext(file_name)[0]  # Remove file extension
+                            search_and_mark_failed(release_title, None)  # Pass None for magnet_file_path since it's not available
+                            # Remove the file from the timers dictionary
+                            del self.file_timers[file_name]
+                        else:
+                            # If the file doesn't exist and the timeout hasn't been reached, put it back in the queue
+                            self.magnet_queue.put(item)
+                            print(f"File not found: {file_name}. Retrying later...")
+                    else:
+                        # If the file is found, remove it from the timers dictionary
+                        if file_name in self.file_timers:
+                            del self.file_timers[file_name]
 
             time.sleep(5)  # Wait for 5 seconds before checking the queue again
 
@@ -119,13 +139,3 @@ class RcloneFileHandler(FileSystemEventHandler):
         Stop the processing loop.
         """
         self.running = False
-
-# def process_existing_files(folder, handler):
-#     """Process existing files in the folder when the script starts."""
-#     for root, _, files in os.walk(folder):
-#         for file in files:
-#             file_path = os.path.join(root, file)
-#             if any(file.lower().endswith(ext) for ext in [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".m4v"]):
-#                 file_name = os.path.basename(file_path)
-#                 file_name_match = file_name.lower()
-#                 handler.process_file(file_path)

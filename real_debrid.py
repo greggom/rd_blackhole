@@ -52,6 +52,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
         if magnet_file_path:
             release_title = os.path.basename(magnet_file_path).replace(".magnet", "").replace(".torrent", "")
             search_and_mark_failed(release_title, magnet_file_path)
+            delete_file_with_retry(file_path=magnet_file_path)
         return None
 
     # Step 1: Add the magnet link
@@ -67,6 +68,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
             if magnet_file_path:
                 release_title = os.path.basename(magnet_file_path).replace(".magnet", "").replace(".torrent", "")
                 search_and_mark_failed(release_title, magnet_file_path)
+                delete_file_with_retry(file_path=magnet_file_path)
             return None
         else:
             raise Exception(f"Failed to add magnet link: {response.text}")
@@ -145,7 +147,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
         "filename": video_files_names
     }
 # # Example usage
-# magnet_link = 'magnet:?xt=urn:btih:E738C8D2BA12C9923847935976D52F49D51070BA&dn=Cobra+Kai+S06+2160p+NF+WEB-DL+DV+HDR+H+265&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zsw.ca%3a6969%2fannounce'
+# magnet_link = 'magnet:?xt=urn:btih:E738C8D2BA12C9923847935976D52F49D51070BA&dn=Cobra+Kai+S06+2160p+NF+WEB-DL+DV+HDR+H+265&tr=http%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.auctor.tv%3a6969%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=https%3a%2f%2fopentracker.i2p.rocks%3a443%2fannounce&tr=udp%3a%2f%2fopen.demonii.com%3a1337%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=http%3a%2f%2ftracker.openbittorrent.com%3a80%2fannounce&tr=udp%3a%2f%2fopen.stealth.si%3a80%2fannounce&tr=udp%3a%2f%2ftracker.torrent.eu.org%3a451%2fannounce&tr=udp%3a%2f%2ftracker.moeking.me%3a6969%2fannounce&tr=udp%3a%2f%2fexplodie.org%3a6969%2fannounce&tr=udp%3a%2f%2fexodus.desync.com%3a6969%2fannounce&tr=udp%3a%2f%2fuploads.gamecoast.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker1.bt.moack.co.kr%3a80%2fannounce&tr=udp%3a%2f%2ftracker.tiny-vps.com%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.theoks.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.skyts.net%3a6969%2fannounce&tr=udp%3a%2f%2ftracker-udp.gbitt.info%3a80%2fannounce&tr=udp%3a%2f%2fopen.tracker.ink%3a6969%2fannounce&tr=udp%3a%2f%2fmovies.zs`w.ca%3a6969%2fannounce'
 # result = upload_magnet_to_realdebrid(magnet_link)
 # if result:
 #     print(f"Torrent ID: {result['id']}")
