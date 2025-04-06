@@ -45,6 +45,15 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
     Upload a magnet link to Real-Debrid, select only video files for download,
     and handle cases where the torrent is not cached.
     """
+
+    # Step 0: Validate the magnet link
+    if not magnet_link or not magnet_link.startswith("magnet:?xt=urn:btih:"):
+        print(f"Invalid magnet link: {magnet_link}")
+        if magnet_file_path:
+            release_title = os.path.basename(magnet_file_path).replace(".magnet", "").replace(".torrent", "")
+            search_and_mark_failed(release_title, magnet_file_path)
+        return None
+
     # Step 1: Add the magnet link
     add_magnet_url = f"{base_url}/torrents/addMagnet"
     headers = {"Authorization": f"Bearer {rd_api_token}"}
@@ -56,7 +65,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
         if error_data.get("error_code") == 35:  # Infringing file error
             print("Torrent contains infringing content. Marking as failed and triggering a new search.")
             if magnet_file_path:
-                release_title = os.path.basename(magnet_file_path).replace(".magnet", "")
+                release_title = os.path.basename(magnet_file_path).replace(".magnet", "").replace(".torrent", "")
                 search_and_mark_failed(release_title, magnet_file_path)
             return None
         else:
@@ -103,7 +112,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
         remove_torrent(torrent_id)  # Remove the torrent if it needs to be downloaded
         # Mark the release as failed in Sonarr or Radarr
         if magnet_file_path:
-            release_title = os.path.basename(magnet_file_path).replace(".magnet", "")
+            release_title = os.path.basename(magnet_file_path).replace(".magnet", "").replace(".torrent", "")
             search_and_mark_failed(release_title, magnet_file_path)
         return None
 
@@ -118,7 +127,7 @@ def upload_magnet_to_realdebrid(magnet_link, magnet_file_path=None):
             remove_torrent(torrent_id)  # Remove the torrent if it encounters an error
             # Mark the release as failed in Sonarr or Radarr
             if magnet_file_path:
-                release_title = os.path.basename(magnet_file_path).replace(".magnet", "")
+                release_title = os.path.basename(magnet_file_path).replace(".magnet", "").replace(".torrent", "")
                 search_and_mark_failed(release_title, magnet_file_path)
             return None
         print("Torrent is still downloading. Waiting...")
